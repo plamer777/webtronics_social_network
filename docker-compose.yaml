@@ -1,0 +1,43 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:alpine
+    restart: always
+    command: -p $POSTGRES_PORT
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    expose:
+      - $POSTGRES_PORT
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $POSTGRES_USER -d $POSTGRES_DB -p $POSTGRES_PORT']
+      interval: 5s
+      retries: 5
+      timeout: 5s
+
+  migrations:
+    image: plamer88/webtronics:api-01
+    env_file:
+      - .env
+    command: >
+      sh -c 'alembic upgrade head'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    image: plamer88/webtronics:api-01
+    volumes:
+      - ./images:/webtronics/images
+      - ./$DESCRIPTION_FILE:/webtronics/description.txt
+    env_file:
+      - .env
+    ports:
+      - '80:8000'
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
